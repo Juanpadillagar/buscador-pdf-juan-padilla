@@ -10,10 +10,9 @@
     body { font-family: Arial, sans-serif; background: #f4faff; margin: 0; padding: 0; }
     header { background-color: #004080; color: white; padding: 20px; text-align: center; }
     main { padding: 20px; max-width: 800px; margin: auto; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); border-radius: 10px; }
-    input[type="text"] { width: 100%; padding: 10px; font-size: 16px; margin-bottom: 10px; }
-    button { padding: 10px 20px; background: #007d7d; color: white; border: none; font-size: 16px; cursor: pointer; }
-    .resultado { margin-top: 20px; }
-    .error { color: red; font-weight: bold; margin-top: 10px; }
+    input, button { padding: 10px; font-size: 16px; margin: 5px 0; width: 100%; }
+    .resultado { margin-top: 10px; }
+    .error { color: red; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -22,50 +21,61 @@
   </header>
   <main>
     <input type="text" id="busqueda" placeholder="Escribe el nombre del libro en PDF..." />
-    <button id="buscarBtn">Buscar PDFs</button>
+    <button onclick="agregarBusqueda()">Agregar</button>
+    <button onclick="buscarBatch()">Buscar PDFs</button>
+    <div id="lista"></div>
     <div id="resultado"></div>
   </main>
 
   <script>
     const apiKey = "AIzaSyBgVX8RV86nx2gWe2AhoVj_35Mxe9ZV7wo";
     const cx = "06b4fda20cf674dfe";
+    let busquedas = [];
 
-    document.getElementById("buscarBtn").addEventListener("click", buscarPDF);
-
-    async function buscarPDF() {
-      const query = document.getElementById("busqueda").value.trim();
-      const resultadoDiv = document.getElementById("resultado");
-
-      if (!query) {
-        resultadoDiv.innerHTML = "<p class='error'>Por favor escribe un término de búsqueda.</p>";
-        return;
+    function agregarBusqueda() {
+      const entrada = document.getElementById("busqueda");
+      const valor = entrada.value.trim();
+      if (valor) {
+        busquedas.push(valor);
+        const div = document.createElement("div");
+        div.textContent = "✔️ " + valor;
+        document.getElementById("lista").appendChild(div);
+        entrada.value = "";
       }
+    }
 
-      resultadoDiv.innerHTML = "<p>Buscando...</p>";
+    async function buscarBatch() {
+      const resultadoDiv = document.getElementById("resultado");
+      resultadoDiv.innerHTML = "<p>Buscando " + busquedas.length + " títulos...</p>";
+      for (let i = 0; i < busquedas.length; i++) {
+        resultadoDiv.innerHTML += `<p><strong>🔎 Buscando:</strong> ${busquedas[i]}</p>`;
+        await buscarPDF(busquedas[i]);
+        await new Promise(resolve => setTimeout(resolve, 1200)); // 1.2 segundos de espera
+      }
+      resultadoDiv.innerHTML += "<p>✅ Búsquedas completadas.</p>";
+    }
 
+    async function buscarPDF(query) {
       try {
         const response = await fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query + " filetype:pdf")}`);
         const data = await response.json();
+        const resultadoDiv = document.getElementById("resultado");
 
         if (data.error) {
-          resultadoDiv.innerHTML = `<p class="error">⚠️ Error de API: ${data.error.message}</p>`;
+          resultadoDiv.innerHTML += `<p class="error">❌ Error: ${data.error.message}</p>`;
           return;
         }
 
         if (!data.items || data.items.length === 0) {
-          resultadoDiv.innerHTML = "<p>No se encontraron resultados.</p>";
+          resultadoDiv.innerHTML += `<p>🔍 Sin resultados para: ${query}</p>`;
           return;
         }
 
-        resultadoDiv.innerHTML = "";
         data.items.forEach(item => {
-          const div = document.createElement("div");
-          div.className = "resultado";
-          div.innerHTML = `<p><a href="${item.link}" target="_blank">${item.title}</a><br><small>${item.snippet}</small></p>`;
-          resultadoDiv.appendChild(div);
+          resultadoDiv.innerHTML += `<div class="resultado"><a href="${item.link}" target="_blank">${item.title}</a><br><small>${item.snippet}</small></div>`;
         });
       } catch (e) {
-        resultadoDiv.innerHTML = `<p class="error">Error de conexión o de red: ${e.message}</p>`;
+        document.getElementById("resultado").innerHTML += `<p class="error">⚠️ Error de red: ${e.message}</p>`;
       }
     }
   </script>
